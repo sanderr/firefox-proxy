@@ -1,0 +1,47 @@
+#!/bin/bash
+
+#####################################################################
+## firefox-proxy
+# firefox-proxy host
+#	firefox-proxy connects to the specified host, and binds
+#	an address on localhost for proxy usage.
+#	If you run this for the first time with a certain host,
+#	you will be asked to create a new firefox profile. After
+#	this, you should set the proxy in the firefox settings
+#	to 127.0.0.1:port. You can find the right port in the output
+#	of this script.
+#
+#	parameters:
+#		host: The host you wish to use as proxy. You require
+#			ssh access to this host.
+#####################################################################
+host=$1
+if [ -z "$host" ]; then
+	echo "no host specified" >&2
+        exit
+fi
+host_table=$HOME/.proxy-host-table
+known_host=false
+if [ -f "$host_table" ]; then
+	while read -r line; do
+		line=$(echo "$line" | sed 's/[\t ]+/ /g')
+		line_array=($line)
+		line_host=${line_array[0]}
+		port=${line_array[1]}
+		if [ "$line_host" == "$host" ]; then
+			known_host=true
+			break
+		fi
+	done < "$host_table"
+else
+	port=47109
+fi
+if ! [ "$known_host" = true ]; then
+	port=$((port+1))
+	echo -e "$host\t$port" >> "$host_table"
+fi
+ssh -TND $port $host &
+id=$!
+echo "Set up Socks host on 127.0.0.1:$port to $host"
+firefox -P "$host"
+kill $id
